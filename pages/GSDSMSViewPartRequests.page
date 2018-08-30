@@ -1,0 +1,237 @@
+<apex:page standardStylesheets="false" docType="html-5.0"  controller="GSDSMSViewPartRequests" >
+    <html xmlns:ng="http://angularjs.org"  ng-app="hello" lang="en">
+        <head>
+            <meta charset="utf-8"/>
+             <meta http-equiv="X-UA-Compatible" content="IE=11" />
+            <link href="https://netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/css/bootstrap.no-icons.min.css" rel="stylesheet"/>
+            <link href="https://netdna.bootstrapcdn.com/font-awesome/2.0/css/font-awesome.css" rel="stylesheet"/>
+            <apex:includeScript value="https://ajax.googleapis.com/ajax/libs/angularjs/1.0.7/angular.js"/>
+           <style>
+                .input-mysize { width: 550px }
+                .search-query {
+                padding-left: 469px;
+                background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAJ5JREFUeNpi+P//PwMQMANxERCfAeI/UBrEZwbJQ9WAFR0A4u1AbAnEbFB6O1ScGaawGoi3wHQiYyBYDZKHKbwHxLo4FOqC5GEKf4Ksw6EQ5IyfIDYTkPEUiNUZsAOQ+F9GRkYJEKcFiDficSOIcRjE4QTiY0C8DuRbqAJLKP8/FP9kQArHUiA+jySJjA8w4LAS5KZd0MAHhaccQIABALsMiBZy4YLtAAAAAElFTkSuQmCC);
+                background-repeat: no-repeat;
+                background-position: 562px 8px;
+                }
+                
+                
+            </style>
+            <script type = "text/javascript">
+    window.onload = function(){
+            document.getElementsByClassName('headerSearchContainer')[0].style.display='none';
+                  document.getElementsByClassName('menuButtonMenuLink')[0].style.display='none';
+            };
+            </script>
+        </head>
+
+<apex:form >        <!--- Javascript -->
+        <script type="text/javascript">
+        <!-- Name your application -->
+        function getScope(ctrlName) 
+        {
+            var sel = 'div[ng-controller="' + ctrlName + '"]';
+            return angular.element(sel).scope();
+        }
+        function reloadPartRequests()
+        {
+            Visualforce.remoting.Manager.invokeAction('{!$RemoteAction.GSDSMSViewPartRequests.reloadPartRequests}',function(result,event)
+            {
+                if(result)
+                {
+                    var angularScope = angular.element(document.getElementById("idctrlRead")).scope();                    
+                    var data = angularScope.items;
+                    angularScope.sortingOrder = 'PartRequestNumber';                    
+                    angularScope.reverse = true;                    
+                    angularScope.items =result;
+                    angularScope.filteredItems = result;
+                    angularScope.pagedItems = [];
+
+                    for (var i = 0; i < angularScope.items.length; i++) {
+                        if (i % angularScope.itemsPerPage === 0) {
+                            angularScope.pagedItems[Math.floor(i / angularScope.itemsPerPage)] = [angularScope.items[i]];
+                        } else {
+                            angularScope.pagedItems[Math.floor(i / angularScope.itemsPerPage)].push(angularScope.items[i]);
+                        }
+                    }
+                    angularScope.$apply();               
+                    console.log('Inside vf remoting method' + result);
+                }
+                else
+                    console.log('Reload request failed');
+                //$scope.items = result;
+                //$scope.apply();
+            },{escape: true});
+        }
+            var myapp = angular.module('hello', []);
+       var sortingOrder = 'name';
+        <!-- Define Controller  -->
+            var contrl=myapp.controller('ctrlRead', function ($scope, $filter) {
+                <!--- Initialize Scope Variables --->
+                $scope.sortingOrder = sortingOrder;
+                $scope.reverse = false;
+                $scope.filteredItems = [];
+                $scope.groupedItems = [];
+                $scope.itemsPerPage = 10;
+                $scope.pagedItems = [];
+                $scope.currentPage = 0;
+                $scope.items ={!lstAsset};                                               
+                $scope.sortingOrder = 'PartRequestNumber';
+                $scope.reverse = true;
+                var searchMatch = function (haystack, needle) {
+                    if (!needle) {
+                        return true;
+                    }
+                    else if(!haystack)
+                        return false;
+                    else
+                        return haystack.toLowerCase().indexOf(needle.toLowerCase()) !== -1;
+                };
+
+                //Initialize the Search Filters 
+                $scope.search = function () {
+                    $scope.filteredItems = $filter('filter')($scope.items, function (item) {
+                        for (var attr in item) {
+                            if (searchMatch(item[attr], $scope.query))
+                                return true;
+                        }
+                        return false;
+                    });
+                    // Define Sorting Order
+                    if ($scope.sortingOrder !== '') {
+                        $scope.filteredItems = $filter('orderBy')($scope.filteredItems, $scope.sortingOrder, $scope.reverse);
+                    }
+                    $scope.currentPage = 0;
+                    
+                    // Group by pages
+                    $scope.groupToPages();
+                };
+                
+                // Calculate Total Number of Pages based on Records Queried 
+                $scope.groupToPages = function () {
+                    $scope.pagedItems = [];
+                    for (var i = 0; i < $scope.filteredItems.length; i++) {
+                        if (i % $scope.itemsPerPage === 0) {
+                            $scope.pagedItems[Math.floor(i / $scope.itemsPerPage)] = [$scope.filteredItems[i]];
+                        } else {
+                            $scope.pagedItems[Math.floor(i / $scope.itemsPerPage)].push($scope.filteredItems[i]);
+                        }
+                    }
+                };
+                                
+                $scope.range = function (start, end) {
+                    var ret = [];
+                    if (!end) {
+                        end = start;
+                        start = 0;
+                    }
+                    for (var i = start; i < end; i++) {
+                        ret.push(i);
+                    }
+                    return ret;
+                };
+                
+                $scope.prevPage = function () {
+                    if ($scope.currentPage > 0) {
+                        $scope.currentPage--;
+                    }
+                };
+                
+                $scope.nextPage = function () {
+                    if ($scope.currentPage < $scope.pagedItems.length - 1) {
+                        $scope.currentPage++;
+                    }
+                };
+                $scope.setPage = function () {
+                    $scope.currentPage = this.n;
+                };
+                // functions have been describe process the data for display
+                $scope.search();
+                
+                // change sorting order
+                $scope.sort_by = function (newSortingOrder) {
+                    if ($scope.sortingOrder == newSortingOrder)
+                        $scope.reverse = !$scope.reverse;
+                    $scope.sortingOrder = newSortingOrder;
+                    
+                    // icon setup
+                    $('th i').each(function () {
+                        // icon reset
+                        $(this).removeClass().addClass('icon-sort');
+                    });
+                    if ($scope.reverse)
+                        $('th.' + new_sorting_order + ' i').removeClass().addClass('icon-chevron-up');
+                    else
+                        $('th.' + new_sorting_order + ' i').removeClass().addClass('icon-chevron-down');
+                };
+                
+            });
+        
+        contrl.$inject = ['$scope', '$filter'];
+        </script>
+         
+        <body>     
+        <apex:actionPoller onsubmit="reloadPartRequests()" reRender="total"  interval="30" />
+        <apex:SLDS />
+            <!-- =========== Binding Controller to Body of Page ============= -->
+            <div ng-controller="ctrlRead" id="idctrlRead">                
+                                              
+               <div class="input-append" style="width:800px; margin:0 auto;">
+                    <input type="text" ng-model="query" ng-change="search()" class="input-mysize  search-query" placeholder="Search"/>
+                </div>
+
+                <table class="table  table-hover" id="total">
+                    <thead>
+                        <tr>
+                            <th class="PartRequestNumber">Part Request Number&nbsp;<a ng-click="sort_by('PartRequestNumber')"><i class="icon-sort"></i></a></th>
+                            <!--<th class="PartRequestNumber">Part Request Number&nbsp;<a ng-click="sort_by('PartRequestNumber')"><i class="icon-sort"></i></a></th>-->
+                            <th class="SerialNumber">Serial Number&nbsp;<a ng-click="sort_by('SerialNumber')"><i class="icon-sort"></i></a></th>
+                            <th class="ProductNumber">Product Number&nbsp;<a ng-click="sort_by('ProductNumber')"><i class="icon-sort"></i></a></th>
+                            <th class="PartNumber">Part Number&nbsp;<a ng-click="sort_by('PartNumber')"><i class="icon-sort"></i></a></th>
+                            <th class="ETAdate">ETA Date/Time&nbsp;<a ng-click="sort_by('ETAdate')"><i class="icon-sort"></i></a></th>
+                            <th class="ProcessingStatus">Processing Status&nbsp;<a ng-click="sort_by('ProcessingStatus')"><i class="icon-sort"></i></a></th>
+                            <th class="SourceSystemCaseId">Customer Reference Id&nbsp;<a ng-click="sort_by('SourceSystemCaseId')"><i class="icon-sort"></i></a></th>
+                            <th class="DedicatedStock">Dedicated Stock&nbsp;<a ng-click="sort_by('DedicatedStock')"><i class="icon-sort"></i></a></th>
+                            <th class="Partdescription">Part Description&nbsp;<a ng-click="sort_by('Partdescription')"><i class="icon-sort"></i></a></th>
+                            
+                        </tr>
+                    </thead>
+                    <tfoot>
+                        <td colspan="10">
+                            <div class="pagination pagination-large pull-left">
+                                <ul>
+                                    <li ng-class="{disabled: currentPage == 0}">
+                                        <a ng-click="prevPage()"> Prev</a>
+                                    </li>
+                                    <li ng-repeat="n in range(pagedItems.length)"
+                                    ng-class="{active: n == currentPage}"
+                                    ng-click="setPage()">
+                                        <a ng-bind="n + 1">1</a>
+                                    </li>
+                                    <li ng-class="{disabled: currentPage == pagedItems.length - 1}">
+                                        <a ng-click="nextPage()">Next</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tfoot>
+                    <tbody>
+                        <tr ng-repeat="item in pagedItems[currentPage]| orderBy:sortingOrder:reverse">
+                            <td>{{item.PartRequestNumber}}</td>
+                            <!--<td>{{item.PartRequestNumber}}</td>-->
+                            <td>{{item.SerialNumber}}</td>
+                            <td>{{item.ProductNumber}}</td>
+                            <td>{{item.PartNumber}}</td>
+                            <td>{{item.ETAdate}}</td>
+                            <td>{{item.ProcessingStatus}}</td>
+                            <td>{{item.SourceSystemCaseId}}</td>
+                            <td>{{item.DedicatedStock}}</td>
+                            <td>{{item.Partdescription}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </body>
+            </apex:form>
+    </html>
+</apex:page>
